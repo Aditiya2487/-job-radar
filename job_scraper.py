@@ -38,15 +38,20 @@ except ImportError:
 
 # Title must contain at least one of these (case-insensitive).
 INCLUDE_KEYWORDS = [
-    "backend", "back-end", "back end",
-    "software engineer", "sde", "python", "java developer",
-    "platform engineer", "api",
+    # backend track
+    "backend", "back-end", "back end", "software engineer", "sde",
+    "python", "java developer", "platform engineer", "api",
+    # full stack
+    "full stack", "fullstack", "full-stack",
+    # sdet / qa automation track
+    "sdet", "qa automation", "automation engineer", "test engineer",
+    "qa engineer", "quality engineer", "automation tester",
 ]
 
 # Title containing any of these is dropped.
 EXCLUDE_KEYWORDS = [
     "senior staff", "principal", "director", "manager", "intern",
-    "frontend", "front-end", "ios", "android", "salesforce",
+    "manual test", "ios", "android", "salesforce",
     "staff engineer",  # remove this line if you want staff roles too
 ]
 
@@ -79,10 +84,15 @@ USE_REMOTIVE = True    # remote-global board; searched by "backend"
 # JobSpy (pip install python-jobspy) — covers LinkedIn, Naukri, Indeed, etc.
 # Heavier than the APIs above; LinkedIn may rate-limit from datacenter IPs.
 USE_JOBSPY = True
-JOBSPY_SITES = ["naukri", "indeed", "linkedin"]
-JOBSPY_SEARCH = "backend engineer"
+JOBSPY_SITES = ["naukri", "indeed", "linkedin", "glassdoor"]
+JOBSPY_SEARCHES = [
+    "backend engineer",
+    "full stack developer",
+    "sdet",
+    "qa automation engineer",
+]
 JOBSPY_LOCATION = "India"
-JOBSPY_RESULTS_PER_SITE = 25
+JOBSPY_RESULTS_PER_SITE = 20
 JOBSPY_HOURS_OLD = 24   # only postings from the last day (script runs 2x/day)
 
 SEEN_FILE = "seen_jobs.json"
@@ -176,32 +186,37 @@ def fetch_remotive():
 
 
 def fetch_jobspy():
-    """LinkedIn + Naukri + Indeed via the python-jobspy library."""
+    """LinkedIn + Naukri + Indeed + Glassdoor via the python-jobspy library."""
     from jobspy import scrape_jobs  # imported here so the script runs without it
-    df = scrape_jobs(
-        site_name=JOBSPY_SITES,
-        search_term=JOBSPY_SEARCH,
-        location=JOBSPY_LOCATION,
-        results_wanted=JOBSPY_RESULTS_PER_SITE,
-        hours_old=JOBSPY_HOURS_OLD,
-        country_indeed="India",
-        verbose=0,
-    )
     out = []
-    for _, r in df.iterrows():
-        url = str(r.get("job_url") or "")
-        if not url:
+    for term in JOBSPY_SEARCHES:
+        try:
+            df = scrape_jobs(
+                site_name=JOBSPY_SITES,
+                search_term=term,
+                location=JOBSPY_LOCATION,
+                results_wanted=JOBSPY_RESULTS_PER_SITE,
+                hours_old=JOBSPY_HOURS_OLD,
+                country_indeed="India",
+                verbose=0,
+            )
+        except Exception as e:
+            print(f"    jobspy '{term}' failed ({e})")
             continue
-        posted = r.get("date_posted")
-        out.append(_job(
-            url,                       # URL doubles as the stable id
-            str(r.get("title") or ""),
-            str(r.get("company") or "?"),
-            str(r.get("location") or ""),
-            url,
-            str(posted)[:10] if posted is not None else "",
-            str(r.get("site") or "jobspy"),
-        ))
+        for _, r in df.iterrows():
+            url = str(r.get("job_url") or "")
+            if not url:
+                continue
+            posted = r.get("date_posted")
+            out.append(_job(
+                url,                       # URL doubles as the stable id
+                str(r.get("title") or ""),
+                str(r.get("company") or "?"),
+                str(r.get("location") or ""),
+                url,
+                str(posted)[:10] if posted is not None else "",
+                str(r.get("site") or "jobspy"),
+            ))
     return out
 
 
